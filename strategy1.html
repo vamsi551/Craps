@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Strategy One</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 24px; }
+    .buttons { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
+    button { padding: 10px 14px; font-size: 16px; cursor: pointer; }
+    #output { margin-top: 12px; padding: 12px; border: 1px solid #ccc; border-radius: 8px; min-height: 44px; }
+    .controls { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+    .hint { color: #555; font-size: 14px; margin-top: 8px; }
+    a { display: inline-block; margin-top: 18px; }
+  </style>
+</head>
+<body>
+  <h1>Strategy One</h1>
+
+  <div class="buttons" id="buttons"></div>
+
+  <div id="output"></div>
+
+  <div class="controls">
+    <button id="undoBtn" type="button">Undo Last</button>
+    <button id="clearBtn" type="button">Clear Log</button>
+    <button id="exportBtn" type="button">Export JSON</button>
+  </div>
+
+  <div class="hint">
+    Notes:
+    <ul>
+      <li>Your clicks are saved in this browser (localStorage).</li>
+      <li>GitHub Pages can’t write to repo files directly, so use “Export JSON” to download a log file.</li>
+    </ul>
+  </div>
+
+  <p><a href="index.html">← Back to Index</a></p>
+
+  <script>
+    const STORAGE_KEY = "craps_strategy1_log_v1";
+
+    // Load existing log from localStorage
+    function loadLog() {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return { strategy: "strategy1", createdAt: new Date().toISOString(), rolls: [] };
+      try {
+        const parsed = JSON.parse(raw);
+        if (!parsed.rolls || !Array.isArray(parsed.rolls)) throw new Error("Invalid log format");
+        return parsed;
+      } catch {
+        // If corrupted, reset
+        return { strategy: "strategy1", createdAt: new Date().toISOString(), rolls: [] };
+      }
+    }
+
+    function saveLog(log) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(log, null, 2));
+    }
+
+    function renderOutput(log) {
+      const output = document.getElementById("output");
+      if (log.rolls.length === 0) {
+        output.textContent = "Log: (empty)";
+        return;
+      }
+      // comma-delimited display
+      output.textContent = "Log: " + log.rolls.map(r => r.value).join(", ");
+    }
+
+    function addRoll(log, value) {
+      log.rolls.push({
+        value,
+        at: new Date().toISOString()
+      });
+      saveLog(log);
+      renderOutput(log);
+    }
+
+    function undoRoll(log) {
+      if (log.rolls.length === 0) return;
+      log.rolls.pop();
+      saveLog(log);
+      renderOutput(log);
+    }
+
+    function clearLog() {
+      const fresh = { strategy: "strategy1", createdAt: new Date().toISOString(), rolls: [] };
+      saveLog(fresh);
+      return fresh;
+    }
+
+    function exportJson(log) {
+      const blob = new Blob([JSON.stringify(log, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "strategy1_log.json";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+
+      URL.revokeObjectURL(url);
+    }
+
+    // Build buttons 2..12
+    const buttonsContainer = document.getElementById("buttons");
+    for (let n = 2; n <= 12; n++) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.textContent = n;
+      btn.addEventListener("click", () => addRoll(log, n));
+      buttonsContainer.appendChild(btn);
+    }
+
+    // Wire controls
+    document.getElementById("undoBtn").addEventListener("click", () => undoRoll(log));
+    document.getElementById("clearBtn").addEventListener("click", () => { log = clearLog(); renderOutput(log); });
+    document.getElementById("exportBtn").addEventListener("click", () => exportJson(log));
+
+    // init
+    let log = loadLog();
+    saveLog(log);
+    renderOutput(log);
+  </script>
+</body>
+</html>
