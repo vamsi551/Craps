@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Craps Shooter Tracker</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 30px;
+    }
+    .number-buttons button {
+      padding: 12px 18px;
+      margin: 5px;
+      font-size: 16px;
+    }
+    .roll {
+      margin: 5px;
+      padding: 5px 10px;
+      display: inline-block;
+      border-radius: 5px;
+      font-weight: bold;
+    }
+    .green { color: green; }
+    .blue { color: blue; }
+    .black { color: black; }
+    .red { color: red; }
+    .shooter-block {
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>Craps Shooter Tracker</h2>
+
+  <div class="number-buttons">
+    <!-- Buttons 2 to 12 -->
+    <script>
+      for (let i = 2; i <= 12; i++) {
+        document.write(`<button onclick="recordRoll(${i})">${i}</button>`);
+      }
+    </script>
+    <button onclick="undoLastRoll()" style="background-color: #ccc;">⬅️ Undo</button>
+  </div>
+
+  <div id="logArea"></div>
+
+  <script>
+    const placeBetNumbers = [2, 3, 4, 5, 6, 8, 9, 10, 11, 12];
+    let shooters = [];
+    let currentShooter = createNewShooter(1);
+    let historyStack = [];
+
+    shooters.push(currentShooter);
+    updateDisplay();
+
+    function createNewShooter(id) {
+      return { id, rolls: [], point: null };
+    }
+
+    function recordRoll(number) {
+      // Save state for undo
+      historyStack.push({
+        shooterIndex: shooters.length - 1,
+        shooterCopy: JSON.parse(JSON.stringify(currentShooter))
+      });
+
+      const rollObj = { number, color: 'black' };
+
+      if (number === 7) {
+        if (currentShooter.point === null) {
+          rollObj.color = 'green'; // Good roll (no point yet)
+        } else {
+          rollObj.color = 'red';   // 7-out after point
+          currentShooter.rolls.push(rollObj);
+          updateDisplay();
+          nextShooter();
+          return;
+        }
+      } else {
+        if (currentShooter.point === null && placeBetNumbers.includes(number)) {
+          rollObj.color = 'blue'; // Set point
+          currentShooter.point = number;
+        } else if (number === currentShooter.point) {
+          rollObj.color = 'green'; // Point hit
+        } else {
+          rollObj.color = 'black'; // Regular roll
+        }
+      }
+
+      currentShooter.rolls.push(rollObj);
+      updateDisplay();
+    }
+
+    function nextShooter() {
+      const newShooter = createNewShooter(currentShooter.id + 1);
+      shooters.push(newShooter);
+      currentShooter = newShooter;
+    }
+
+    function undoLastRoll() {
+      if (historyStack.length === 0) return;
+      const lastState = historyStack.pop();
+      shooters[lastState.shooterIndex] = lastState.shooterCopy;
+
+      shooters = shooters.slice(0, lastState.shooterIndex + 1);
+      currentShooter = shooters[shooters.length - 1];
+      updateDisplay();
+    }
+
+    function updateDisplay() {
+      const logArea = document.getElementById('logArea');
+      logArea.innerHTML = '';
+
+      shooters.forEach(shooter => {
+        const div = document.createElement('div');
+        div.className = 'shooter-block';
+
+        const header = document.createElement('h3');
+        header.textContent = `Shooter ${shooter.id}`;
+        div.appendChild(header);
+
+        shooter.rolls.forEach(roll => {
+          const span = document.createElement('span');
+          span.textContent = roll.number;
+          span.className = `roll ${roll.color}`;
+          div.appendChild(span);
+        });
+
+        logArea.appendChild(div);
+      });
+    }
+  </script>
+
+</body>
+</html>
