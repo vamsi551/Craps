@@ -6,13 +6,30 @@
   <style>
     body {
       font-family: Arial, sans-serif;
-      margin: 30px;
+      margin: 20px;
+      position: relative;
     }
-    .number-buttons button {
-      padding: 12px 18px;
-      margin: 5px;
-      font-size: 16px;
+
+    .button-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 10px;
     }
+
+    .button-row button {
+      flex: 1;
+      margin: 4px;
+      padding: 16px 0;
+      font-size: 18px;
+      font-weight: bold;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+
+    .undo-button {
+      background-color: #eee;
+    }
+
     .roll {
       margin: 5px;
       padding: 5px 10px;
@@ -20,12 +37,64 @@
       border-radius: 5px;
       font-weight: bold;
     }
+
     .green { color: green; }
     .blue { color: blue; }
     .black { color: black; }
     .red { color: red; }
+
     .shooter-block {
       margin-bottom: 20px;
+    }
+
+    .corner-controls {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .import-box {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      background: #f9f9f9;
+      padding: 10px;
+      border-top: 1px solid #ccc;
+      display: none;
+    }
+
+    .import-box textarea {
+      width: 100%;
+      height: 60px;
+      font-size: 16px;
+    }
+
+    .import-box button {
+      margin-top: 5px;
+    }
+
+    .roll-string {
+      margin-top: 40px;
+      padding-top: 10px;
+      border-top: 1px solid #ddd;
+      font-size: 16px;
+    }
+
+    .copy-btn {
+      background: #eee;
+      border: 1px solid #ccc;
+      padding: 4px 10px;
+      margin-left: 10px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    .copy-btn:hover {
+      background: #ddd;
     }
   </style>
 </head>
@@ -33,23 +102,54 @@
 
   <h2>Craps Shooter Tracker</h2>
 
-  <div class="number-buttons">
-    <!-- Buttons 2 to 12 -->
-    <script>
-      for (let i = 2; i <= 12; i++) {
-        document.write(`<button onclick="recordRoll(${i})">${i}</button>`);
-      }
-    </script>
-    <button onclick="undoLastRoll()" style="background-color: #ccc;">⬅️ Undo</button>
+  <!-- Row 1: 2–7 -->
+  <div class="button-row">
+    <button onclick="recordRoll(2)">2</button>
+    <button onclick="recordRoll(3)">3</button>
+    <button onclick="recordRoll(4)">4</button>
+    <button onclick="recordRoll(5)">5</button>
+    <button onclick="recordRoll(6)">6</button>
+    <button onclick="recordRoll(7)">7</button>
+  </div>
+
+  <!-- Row 2: 8–12 + Undo -->
+  <div class="button-row">
+    <button onclick="recordRoll(8)">8</button>
+    <button onclick="recordRoll(9)">9</button>
+    <button onclick="recordRoll(10)">10</button>
+    <button onclick="recordRoll(11)">11</button>
+    <button onclick="recordRoll(12)">12</button>
+    <button onclick="undoLastRoll()" class="undo-button">⬅️ Undo</button>
   </div>
 
   <div id="logArea"></div>
+
+  <!-- Import box -->
+  <div class="import-box" id="importBox">
+    <label>Paste roll numbers (comma-separated):</label>
+    <textarea id="importData" placeholder="e.g. 6,4,7,5,5,7,8,12,7"></textarea>
+    <button onclick="loadImportedData()">📥 Load Rolls</button>
+  </div>
+
+  <!-- Corner controls -->
+  <div class="corner-controls">
+    <button onclick="exportLog()">📤 Export</button>
+    <button onclick="showImport()">📥 Import</button>
+  </div>
+
+  <!-- Roll history string -->
+  <div class="roll-string">
+    <strong>All Rolls:</strong>
+    <span id="rollString">—</span>
+    <button class="copy-btn" onclick="copyRollString()">📋 Copy</button>
+  </div>
 
   <script>
     const placeBetNumbers = [2, 3, 4, 5, 6, 8, 9, 10, 11, 12];
     let shooters = [];
     let currentShooter = createNewShooter(1);
     let historyStack = [];
+    let allRolls = [];
 
     shooters.push(currentShooter);
     updateDisplay();
@@ -59,19 +159,20 @@
     }
 
     function recordRoll(number) {
-      // Save state for undo
       historyStack.push({
         shooterIndex: shooters.length - 1,
-        shooterCopy: JSON.parse(JSON.stringify(currentShooter))
+        shooterCopy: JSON.parse(JSON.stringify(currentShooter)),
+        allRollsCopy: [...allRolls]
       });
 
       const rollObj = { number, color: 'black' };
+      allRolls.push(number);
 
       if (number === 7) {
         if (currentShooter.point === null) {
-          rollObj.color = 'green'; // Good roll (no point yet)
+          rollObj.color = 'green'; // Good roll
         } else {
-          rollObj.color = 'red';   // 7-out after point
+          rollObj.color = 'red';   // 7-out
           currentShooter.rolls.push(rollObj);
           updateDisplay();
           nextShooter();
@@ -79,12 +180,12 @@
         }
       } else {
         if (currentShooter.point === null && placeBetNumbers.includes(number)) {
-          rollObj.color = 'blue'; // Set point
+          rollObj.color = 'blue';
           currentShooter.point = number;
         } else if (number === currentShooter.point) {
-          rollObj.color = 'green'; // Point hit
+          rollObj.color = 'green';
         } else {
-          rollObj.color = 'black'; // Regular roll
+          rollObj.color = 'black';
         }
       }
 
@@ -93,18 +194,17 @@
     }
 
     function nextShooter() {
-      const newShooter = createNewShooter(currentShooter.id + 1);
-      shooters.push(newShooter);
-      currentShooter = newShooter;
+      currentShooter = createNewShooter(currentShooter.id + 1);
+      shooters.push(currentShooter);
     }
 
     function undoLastRoll() {
       if (historyStack.length === 0) return;
       const lastState = historyStack.pop();
       shooters[lastState.shooterIndex] = lastState.shooterCopy;
-
       shooters = shooters.slice(0, lastState.shooterIndex + 1);
       currentShooter = shooters[shooters.length - 1];
+      allRolls = lastState.allRollsCopy;
       updateDisplay();
     }
 
@@ -115,22 +215,54 @@
       shooters.forEach(shooter => {
         const div = document.createElement('div');
         div.className = 'shooter-block';
-
         const header = document.createElement('h3');
         header.textContent = `Shooter ${shooter.id}`;
         div.appendChild(header);
-
         shooter.rolls.forEach(roll => {
           const span = document.createElement('span');
           span.textContent = roll.number;
           span.className = `roll ${roll.color}`;
           div.appendChild(span);
         });
-
         logArea.appendChild(div);
+      });
+
+      document.getElementById('rollString').textContent = allRolls.join(', ');
+    }
+
+    function exportLog() {
+      const blob = new Blob([JSON.stringify(shooters)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'craps_log.json';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+
+    function showImport() {
+      document.getElementById('importBox').style.display = 'block';
+    }
+
+    function loadImportedData() {
+      const input = document.getElementById('importData').value.trim();
+      if (!input) return;
+
+      const numbers = input.split(',').map(n => parseInt(n.trim())).filter(n => n >= 2 && n <= 12);
+      numbers.forEach(num => recordRoll(num));
+
+      document.getElementById('importBox').style.display = 'none';
+      document.getElementById('importData').value = '';
+    }
+
+    function copyRollString() {
+      const text = allRolls.join(', ');
+      navigator.clipboard.writeText(text).then(() => {
+        alert('Roll string copied to clipboard!');
       });
     }
   </script>
-  <p><a href="index.html">← Back to Index</a></p>
+<p><a href="index.html">← Back to Index</a></p>
 </body>
 </html>
